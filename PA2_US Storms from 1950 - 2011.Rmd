@@ -1,0 +1,141 @@
+---
+title: "Tornadoes Cause Most Destruction in U.S. from 1950 - 2011"
+author: "Daniel Fletcher"
+date: "July 26, 2014"
+output:
+theme: journal
+highlight: pygments
+---
+#Synopsis
+
+All over the world, natural events can have significant impacts on humans and nations.  In the United States, from 1950 - 2011, tornadoes appear to have caused both the greatest number of fatalities and the largest amount of property damage of any event type grouping.
+
+In order to reach this conclusion, this analysis first pulled in a large data set from the NOAA Storm Database contatining a number of variables giving details such as frequency of natural events, number of fatalities caused, and property damage incurred.
+
+The raw data included a vast number of `EVTYPE`s, which were consolidated down to smaller, logical groupings.  While this approach is certainly imperfect, it does provide a robust comparison across general natural event categorizations.
+
+Given the results of this paper, government officials and citizens would be well advised to prepare themselves and their communities to guard against the destruciton brought on by tornadoes.
+
+#Data Processing
+
+##Data Loading
+
+To begin processing the data, let's first download the csv.bz2 file, being sure to use http, instead of https in the file URL.  Also, let's set `cache = TRUE` in the `.Rmd` code chunk, so we can avoid downloading the 49MB file everytime we `knit` the `.Rmd`!
+
+```{r Data Load, echo = TRUE, cache = TRUE}
+
+download.file(url = "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              destfile = "FStormData.csv.bz2") ## use http instead of https to avoid download error
+
+```
+
+Now the data file has been downloaded to our working directory, let's examine what the data looks like and how we can expedite the full data import.
+
+1. We can get a sense of the data's structure by following Prof. Peng's suggestions on [Reading large tables into R](http://www.biostat.jhsph.edu/~rpeng/docs/R-large-tables.html).
+
+    a. *colClasses:*  we use a few vectors to identify the data's class structure and header names, including sapply, which will enable us to use colClasses to help streamline the data load.
+    b. *nrows:*  using Prof. Peng's suggestion, coupled with a [nifty looping check](http://www.r-bloggers.com/easy-way-of-determining-number-of-linesrecords-in-a-given-large-file-using-r/) from Pradeep Mavuluri, we can identify how many rows the file has, *before* actually loading its data.
+    c. *comment.char* is set to `= ""` by default in read.csv, which could help our import speed.
+
+```{r Determine Data Structure, echo = TRUE, cache = TRUE}
+
+csv5rows <- read.csv("FStormData.csv.bz2", nrows = 5) ## use a few rows for speed/simplicity
+classes <- sapply(csv5rows, class) ## determine the data's structure (classes)
+
+testcon <- file("FStormData.csv.bz2",open="r") ## allows us to "peek" inside, prior to loading
+readsizeof <- 20000
+nooflines <- 0
+( while((linesread <- length(readLines(testcon,readsizeof))) > 0 ) ## while loop to count nrows
+nooflines <- nooflines+linesread ) ## will expectedly return "## NULL" when complete
+close(testcon)
+nooflines
+
+```
+
+2. Now we know `nrows = nooflines` and `colClasses = classes`, we can expedite the actual data load.  *Unfortunately,* however, with this dataset, there are a number of instances where the data provides observations different than the expected `class`, so we will omit `colClasses = classes`, when loading the data, as trying to identify the problems individually would, ironically, take much longer than simply loading in the data at a slower speed.
+
+```{r Expedited Import, echo = TRUE, cache = TRUE}
+
+data <- read.csv("FStormData.csv.bz2", nrows = nooflines)
+
+```
+
+##Transforming "EVTYPE"
+
+3. Because `EVTYPE` is the variable we analyze to decide which type of event has the greatest impact, we will attempt to "clean it up," as best we can, using `gsub()` to combine similar terms, looking for obvious patterns, such as "WINTRY MIX" and "WINTERY MIX", making them "WINTER".  First, we'll change `EVTYPE` to `class = "character"`, to enable the transformation.
+
+```{r Transformation, echo = TRUE, cache = TRUE}
+
+data$EVTYPE <- as.character(data$EVTYPE) ## removes factor levels to enable gsub() transformation
+data$EVTYPE <- gsub(".*wint.*", "WINTER", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*wind.*", "WIND", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*flood.*", "FLOOD", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*ice.*", "ICE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*snow.*", "SNOW", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*rain.*", "RAIN", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*temperature.*", "TEMPERATURE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*hurricane.*", "HURRICANE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*bliz.*", "SNOW", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*cold.*", "TEMPERATURE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*hot.*", "TEMPERATURE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*heat.*", "TEMPERATURE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*trop.*", "TROPICAL", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*tsu.*", "TROPICAL", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*dry.*", "DRY", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*volc.*", "VOLCANOE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*typ.*", "TROPICAL", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*fld.*", "FLOOD", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*torn.*", "TORNADO", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*thund.*", "THUNDERSTORM", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*fire.*", "FIRE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*waters.*", "WATERSPOUT", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*mud.*", "MUD", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*fun.*", "TORNADO", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*lightn.*", "LIGHTNING", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*preci.*", "RAIN", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*rip.*", "RIP CURRENT", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*freez.*", "FREEZING", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*hail.*", "HAIL", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*lands.*", "LANDSLIDE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*unseason.*", "UNSEASONABLE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*unus.*", "UNSEASONABLE", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*drought.*", "DRY", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*astron.*", "TROPICAL", data$EVTYPE, ignore.case = TRUE)
+data$EVTYPE <- gsub(".*record.*", "RECORD", data$EVTYPE, ignore.case = TRUE)
+
+```
+
+Having applied applied 36 different transformations, the data set now has only 217 unique events, as compared with over 900, previously, and the events are largely grouped by count > 100.
+
+#Results
+##Events most harmful to population health
+
+The question "Which event is most harmful to population health?" could be defined in a number of ways.  For purposes of this analysis, events causing the greatest number of fatalities are the most harmful.  Using `tapply()` to sum up the number of fatalities for the various event types, we can see the top five events causing fatalities in the U.S. from 1950 - 2011:
+
+```{r Fatalities, echo = TRUE, cache = FALSE, fig.height=5, fig.width=10}
+
+fatalitiesList <- tapply(data$FATALITIES, data$EVTYPE, sum) ## sum fatalities by event type
+top5fatalities <- sort(fatalitiesList, decreasing = TRUE)[1:5] ## sort by top 5
+
+barplot(top5fatalities, ylab = "Total number of fatalities", xlab = "Event Type", 
+         main = "Top 5 U.S. Most Fatal Natural Events 1950 - 2011",
+         xlim = (c(0,1)), width = .13, space = .2)
+
+```
+
+
+##Events with the greatest economic impact
+
+Also like the previous question, which event has the greatest economic impact is subject to broad interpretation.  In deciding the question for this analysis, the "PROPDMG" or property damage, variable is the key indicator.  We will again use `tapply()`, in this case to sum the damage by event in $USD.  Once, again, the tornado is king of U.S. destruction, followed closely by wind:
+
+```{r Economic Damage, echo = TRUE, cache = FALSE, fig.height=5, fig.width=10}
+
+propertylist <- tapply(data$PROPDMG, data$EVTYPE, sum) ## sum property damage by event type
+top5property <- sort(propertylist, decreasing = TRUE)[1:5] ## sort by top 5
+
+barplot(top5property, ylab = "Sum of Property Damage in $USD", xlab = "Event Type", 
+         main = "Top 5 U.S. Natural Events Most Damaging to Property 1950 - 2011",
+         xlim = (c(0,1)), width = .13, space = .2)
+
+```
+
